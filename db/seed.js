@@ -26,11 +26,11 @@ async function seed() {
 
     CREATE TABLE placestovisit (
         id SERIAL PRIMARY KEY,
-        city TYPE NOT NULL,
-        borabora TYPE NOT NULL,
-        venice TYPE NOT NULL,
-        rome TYPE NOT NULL,
-        egypt TYPE NOT NULL
+        city STRING NOT NULL,
+        borabora STRING NOT NULL,
+        venice STRING NOT NULL,
+        rome STRING NOT NULL,
+        egypt STRING NOT NULL
         
       );
 
