@@ -7,7 +7,7 @@ async function seed() {
   console.log("Seeding the database.");
   try {
     // Clear the database.
-    await db.query("DROP TABLE IF EXISTS users, placestovisit, comments, reviews, categories, likes/favorites;");
+    await db.query("DROP TABLE IF EXISTS bookmarks, categories, cities, comments, countries, operating, photos, places, reviews, users;");
 
     // Recreate the tables
     await db.query(`
