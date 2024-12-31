@@ -5,6 +5,15 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const client = new pg.Client(process.env.DATABASE_URL || "postgres://localhost/acme_world_travel_db");
 
+// Database configuration
+const pool = new Pool({
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
+});
+
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -348,6 +357,109 @@ const init = async () => {
     app.listen(port , () => console.log(`listening on port ${port}`));
 };
 
+// Bookmark Routes
+app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res) => {
+  try {
+    const { notes } = req.body;
+    const { placeId } = req.params;
+
+    // Check if bookmark already exists
+    const existingBookmark = await pool.query(
+      'SELECT * FROM user_bookmarks WHERE user_id = $1 AND place_id = $2',
+      [req.user.user_id, placeId]
+    );
+
+    if (existingBookmark.rows.length > 0) {
+      return res.status(400).json({ error: 'Place already bookmarked' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO user_bookmarks (user_id, place_id, notes, created_at)
+       VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+       RETURNING *`,
+      [req.user.user_id, placeId, notes]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/bookmarks', authenticateToken, async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const offset = (page - 1) * limit;
+
+    const result = await pool.query(
+      `SELECT b.*, p.name, p.description, p.address, c.name as category_name,
+              COUNT(*) OVER() as total_count
+       FROM user_bookmarks b
+       JOIN places p ON b.place_id = p.place_id
+       LEFT JOIN categories c ON p.category_id = c.category_id
+       WHERE b.user_id = $1
+       ORDER BY b.created_at DESC
+       LIMIT $2 OFFSET $3`,
+      [req.user.user_id, limit, offset]
+    );
+
+    const totalCount = result.rows[0]?.total_count || 0;
+    const totalPages = Math.ceil(totalCount / limit);
+
+    res.json({
+      bookmarks: result.rows,
+      pagination: {
+        total: parseInt(totalCount),
+        pages: totalPages,
+        current_page: parseInt(page),
+        per_page: parseInt(limit)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/api/bookmarks/:placeId', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM user_bookmarks WHERE user_id = $1 AND place_id = $2',
+      [req.user.user_id, req.params.placeId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Bookmark not found' });
+    }
+
+    res.json({ message: 'Bookmark removed successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Photo Upload Routes
+app.post('/api/places/:placeId/photos', authenticateToken, upload.single('photo'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO photos (user_id, place_id, photo_url, caption, uploaded_at)
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+       RETURNING *`,
+      [req.user.user_id, req.params.placeId, `/uploads/${req.file.filename}`, req.body.caption]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 
 init();
