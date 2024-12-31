@@ -3,7 +3,7 @@ const app = express();
 const pg = require("pg");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const client = new pg.Client(process.env.DATABASE_URL || "postgres://localhost/ ");
+const client = new pg.Client(process.env.DATABASE_URL || "postgres://localhost/acme_world_travel_db");
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
