@@ -30,15 +30,7 @@ async function seed() {
 
       );
 
-    CREATE TABLE bookmarks (
-        user_id SERIAL REFERENCES users(id) NOT NULL,
-        place_id SERIAL REFERENCES places(id) NOT NULL,
-        created_at TIMESTAMP NOT NULL,
-        notes TEXT NOT NULL,
-        PRIMARY KEY (user_id, place_id)
-
-
-      );
+  
 
     CREATE TABLE categories (
         id SERIAL PRIMARY KEY,
@@ -59,16 +51,7 @@ async function seed() {
         
       );
 
-    CREATE TABLE operating (
-      place_id SERIAL REFERENCES places(id) NOT NULL,
-      day_of_week INT NOT NULL,
-      open_time TIME NOT NULL,
-      close_time TIME NOT NULL,
-      is_closed BOOLEAN NOT NULL,
-      PRIMARY KEY (place_id, day_of_week)
-
-      );
-
+  
      CREATE TABLE cities (
         id SERIAL PRIMARY KEY,
         city_id INT NOT NULL,
@@ -99,6 +82,25 @@ async function seed() {
         
       );
 
+    CREATE TABLE bookmarks (
+        user_id SERIAL REFERENCES users(id) NOT NULL,
+        place_id SERIAL REFERENCES places(id) NOT NULL,
+        created_at TIMESTAMP NOT NULL,
+        notes TEXT NOT NULL,
+        PRIMARY KEY (user_id, place_id)
+
+
+      );
+
+    CREATE TABLE operating (
+      place_id SERIAL REFERENCES places(id) NOT NULL,
+      day_of_week INT NOT NULL,
+      open_time TIME NOT NULL,
+      close_time TIME NOT NULL,
+      is_closed BOOLEAN NOT NULL,
+      PRIMARY KEY (place_id, day_of_week)
+
+      );
 
 
     CREATE TABLE reviews (
@@ -144,6 +146,7 @@ async function seed() {
 
 
     `);
+
 
   } catch (err) {
     console.error(err);
