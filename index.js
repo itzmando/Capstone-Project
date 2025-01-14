@@ -5,8 +5,13 @@ const multer = require("multer");
 const { Pool } = pg;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const client = new pg.Client(process.env.DATABASE_URL || "postgres://localhost/acme_world_travel_db");
+const client = new pg.Client(process.env.DATABASE_URL || "postgres://dkb@localhost/acme_world_travel_review_db");
 const upload = multer({ dest: "uploads/" });
+app.use(express.json())
+
+
+
+client.connect();
 
 // Database configuration
 const pool = new Pool({
@@ -39,7 +44,7 @@ app.post('/api/auth/register', async (req, res) => {
     const { username, email, password, full_name } = req.body;
 
     // Check if user exists
-    const userExists = await pool.query(
+    const userExists = await client.query(
       'SELECT * FROM users WHERE email = $1 OR username = $2',
       [email, username]
     );
@@ -52,10 +57,10 @@ app.post('/api/auth/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const result = await pool.query(
-      `INSERT INTO users (username, email, password_hash, full_name, created_at)
-         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-         RETURNING user_id, username, email, full_name`,
+    const result = await client.query(
+      `INSERT INTO users (username, email, password_hash, full_name)
+         VALUES ($1, $2, $3, $4)
+         RETURNING username, email, full_name;`,
       [username, email, hashedPassword, full_name]
     );
 
@@ -71,8 +76,8 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
 
     // Find user
-    const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
+    const result = await client.query(
+      `SELECT * FROM users WHERE email = $1;`,
       [email]
     );
 
@@ -97,7 +102,7 @@ app.post('/api/auth/login', async (req, res) => {
     );
 
     // Update last login
-    await pool.query(
+    await client.query(
       'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE user_id = $1',
       [user.user_id]
     );
