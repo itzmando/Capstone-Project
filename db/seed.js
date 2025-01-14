@@ -1,7 +1,7 @@
 // Clear and repopulate the database.
 
 const { db } = require("./index");
-const { faker } = require("@faker-js/faker");
+
 
 async function seed() {
   console.log("Seeding the database.");
@@ -15,8 +15,9 @@ async function seed() {
             
    
     CREATE TABLE users (
-        id SERIAL PRIMARY KEY,
-        user_id INT NOT NULL,
+
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        user_id INT GENERATED ALWAYS AS (id) STORED,
         username VARCHAR(50) NOT NULL,
         email VARCHAR(100) NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
@@ -150,7 +151,7 @@ async function seed() {
     `);
 
 
-    let user_id, category_id, country_id, city_id, latitude, longitude, population, place_id, day_of_week, review_id, rating, photo_id, price_level = 0;
+    let category_id, country_id, city_id, latitude, longitude, population, place_id, day_of_week, review_id, rating, photo_id, price_level = 0;
     let is_featured = true;
     let is_helpful = true;
     let is_closed = true;
@@ -161,7 +162,7 @@ async function seed() {
     const createData = async (numOfSeeds) => {
 
       for (let i = 0; i < numOfSeeds; i++) {
-        user_id = i + 1, username = `user${i}`, email = `userEmail${i}`, password_hash = `passwordHash${i}`, full_name = `fullName${i}`,
+        username = `user${i}`, email = `userEmail${i}`, password_hash = `passwordHash${i}`, full_name = `fullName${i}`,
 
           profile_picture_url = `profile_picture_url${i}`, bio = `bio${i}`, country = `country${i}`,
 
@@ -185,9 +186,9 @@ async function seed() {
 
 
         await db.query(`
-          INSERT INTO users(user_id, username, email, password_hash, full_name, profile_picture_url, bio, country)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ;`, [user_id, username, email, password_hash, full_name, profile_picture_url, bio, country]);
+          INSERT INTO users(username, email, password_hash, full_name, profile_picture_url, bio, country)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ;`, [username, email, password_hash, full_name, profile_picture_url, bio, country]);
 
         await db.query(`
           INSERT INTO categories(category_id, name, description, icon_url)
