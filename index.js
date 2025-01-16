@@ -25,13 +25,15 @@ const pool = new Pool({
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
+  console.log(authHeader);
   const token = authHeader && authHeader.split(' ')[1];
+  console.log(token);
 
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET || "shhh", (err, user) => {
     if (err) return res.status(403).json({ error: 'Invalid or expired token' });
     req.user = user;
     next();
@@ -97,7 +99,7 @@ app.post('/api/auth/login', async (req, res) => {
     // Create token
     const token = jwt.sign(
       { user_id: user.user_id, email: user.email },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'shhh',
       { expiresIn: '24h' }
     );
 
@@ -117,8 +119,8 @@ app.post('/api/auth/login', async (req, res) => {
 // User Routes
 app.get('/api/users/profile', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT user_id, username, email, full_name, bio, country, created_at FROM users WHERE user_id = $1',
+    const result = await client.query(
+      'SELECT id, username, email, full_name, bio, country, created_at FROM users WHERE id = $1',
       [req.user.user_id]
     );
 
