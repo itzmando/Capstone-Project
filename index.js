@@ -135,7 +135,7 @@ app.put('/api/users/profile', authenticateToken, async (req, res) => {
   try {
     const { full_name, bio, country } = req.body;
 
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE users 
          SET full_name = COALESCE($1, full_name),
              bio = COALESCE($2, bio),
