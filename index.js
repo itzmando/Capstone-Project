@@ -5,7 +5,7 @@ const multer = require("multer");
 const { Pool } = pg;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const client = new pg.Client(process.env.DATABASE_URL || "postgres://dkb@localhost/acme_world_travel_review_db");
+const client = new pg.Client(process.env.DATABASE_URL || "postgres://localhost/acme_world_travel_review_db");
 const upload = multer({ dest: "uploads/" });
 app.use(express.json())
 
@@ -97,7 +97,7 @@ app.post('/api/auth/login', async (req, res) => {
     // Create token
     const token = jwt.sign(
       { user_id: user.user_id, email: user.email },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || 'shhh',
       { expiresIn: '24h' }
     );
 
@@ -117,8 +117,8 @@ app.post('/api/auth/login', async (req, res) => {
 // User Routes
 app.get('/api/users/profile', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT user_id, username, email, full_name, bio, country, created_at FROM users WHERE user_id = $1',
+    const result = await client.query(
+      'SELECT id, username, email, full_name, bio, country, created_at FROM users WHERE id = $1',
       [req.user.user_id]
     );
 
@@ -133,7 +133,7 @@ app.put('/api/users/profile', authenticateToken, async (req, res) => {
   try {
     const { full_name, bio, country } = req.body;
 
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE users 
          SET full_name = COALESCE($1, full_name),
              bio = COALESCE($2, bio),
@@ -183,7 +183,7 @@ app.get('/api/places', async (req, res) => {
                  LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     queryParams.push(limit, offset);
 
-    const result = await pool.query(query, queryParams);
+    const result = await client.query(query, queryParams);
 
     const totalCount = result.rows[0]?.total_count || 0;
     const totalPages = Math.ceil(totalCount / limit);
@@ -205,7 +205,7 @@ app.get('/api/places', async (req, res) => {
 
 app.get('/api/places/:id', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await client.query(
       `SELECT p.*, c.name as category_name, ct.name as city_name,
                 COALESCE(AVG(r.rating), 0) as average_rating,
                 COUNT(r.review_id) as review_count
@@ -214,7 +214,7 @@ app.get('/api/places/:id', async (req, res) => {
          LEFT JOIN cities ct ON p.city_id = ct.city_id
          LEFT JOIN reviews r ON p.place_id = r.place_id
          WHERE p.place_id = $1
-         GROUP BY p.place_id, c.name, ct.name`,
+         GROUP BY p.id, p.place_id, c.name, ct.name`,
       [req.params.id]
     );
 

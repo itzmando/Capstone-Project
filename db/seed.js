@@ -12,9 +12,7 @@ async function seed() {
     // Recreate the tables
     await db.query(`
             
-            
-   
-    CREATE TABLE users (
+      CREATE TABLE users (
 
         id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         user_id INT GENERATED ALWAYS AS (id) STORED,
@@ -22,14 +20,14 @@ async function seed() {
         email VARCHAR(100) NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         full_name VARCHAR(100) NOT NULL,
-        profile_picture_url VARCHAR(255) NOT NULL,
-        bio TEXT NOT NULL,
-        country VARCHAR(100) NOT NULL,
+        profile_picture_url VARCHAR(255),
+        bio TEXT,
+        country VARCHAR(100),
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         last_login TIMESTAMP
 
 
-      );
+      ); 
 
   
 
@@ -86,8 +84,8 @@ async function seed() {
     CREATE TABLE bookmarks (
         user_id SERIAL REFERENCES users(id) NOT NULL,
         place_id SERIAL REFERENCES places(id) NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        notes TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        notes TEXT,
         PRIMARY KEY (user_id, place_id)
 
 
@@ -113,7 +111,7 @@ async function seed() {
         title VARCHAR(200) NOT NULL,
         content TEXT NOT NULL,
         visit_date DATE NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL,
         comments VARCHAR(255) NOT NULL
 
@@ -124,7 +122,7 @@ async function seed() {
         user_id SERIAL REFERENCES users(id) NOT NULL,
         place_id SERIAL REFERENCES places(id) NOT NULL,
         review_id SERIAL REFERENCES reviews(id) NOT NULL,
-        photo_url VARCHAR(255) NOT NULL,
+        photo_url VARCHAR(255),
         caption TEXT NOT NULL,
         uploaded_at TIMESTAMP NOT NULL,
         is_featured BOOLEAN NOT NULL
@@ -145,7 +143,6 @@ async function seed() {
 
       );
 
-      
 
 
     `);
