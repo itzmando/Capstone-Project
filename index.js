@@ -185,7 +185,7 @@ app.get('/api/places', async (req, res) => {
                  LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     queryParams.push(limit, offset);
 
-    const result = await pool.query(query, queryParams);
+    const result = await client.query(query, queryParams);
 
     const totalCount = result.rows[0]?.total_count || 0;
     const totalPages = Math.ceil(totalCount / limit);
@@ -207,7 +207,7 @@ app.get('/api/places', async (req, res) => {
 
 app.get('/api/places/:id', async (req, res) => {
   try {
-    const result = await pool.query(
+    const result = await client.query(
       `SELECT p.*, c.name as category_name, ct.name as city_name,
                 COALESCE(AVG(r.rating), 0) as average_rating,
                 COUNT(r.review_id) as review_count
@@ -216,7 +216,7 @@ app.get('/api/places/:id', async (req, res) => {
          LEFT JOIN cities ct ON p.city_id = ct.city_id
          LEFT JOIN reviews r ON p.place_id = r.place_id
          WHERE p.place_id = $1
-         GROUP BY p.place_id, c.name, ct.name`,
+         GROUP BY p.id, p.place_id, c.name, ct.name`,
       [req.params.id]
     );
 
@@ -237,7 +237,7 @@ app.post('/api/places/:placeId/reviews', authenticateToken, async (req, res) => 
     const { rating, title, content, visit_date } = req.body;
     const { placeId } = req.params;
 
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO reviews (user_id, place_id, rating, title, content, visit_date, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          RETURNING *`,
