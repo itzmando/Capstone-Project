@@ -1,6 +1,7 @@
-import './App.css'
-import React, { useState, useEffect } from 'react';
 
+import React, { useState, useEffect } from 'react';
+import Signup from './Signup';
+import './index.css'
 const App = () => {
   const [currentPath, setCurrentPath] = React.useState(window.location.pathname);
   const [user, setUser] = React.useState(null);
@@ -87,37 +88,14 @@ const App = () => {
         );
       case '/signup':
         return (
-          <div className="min-h-screen bg-gray-100 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md">
-              <h2 className="text-center text-3xl font-bold">Sign up</h2>
-              {/* Signup form */}
-              <form className="mt-8 space-y-6">
-                <input
-                  type="text"
-                  placeholder="Username"
-                  className="block w-full px-3 py-2 border rounded-md"
-                />
-                <input
-                  type="email"
-                  placeholder="Email"
-                  className="block w-full px-3 py-2 border rounded-md"
-                />
-                <input
-                  type="password"
-                  placeholder="Password"
-                  className="block w-full px-3 py-2 border rounded-md"
-                />
-                <button
-                  className="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600"
-                >
-                  Sign up
-                </button>
-              </form>
-            </div>
-          </div>
+          <>
+          <Signup/>
+          
+                  </>
         );
       default:
         return (
+          
           <div className="max-w-6xl mx-auto px-4 py-8">
             <h1 className="text-3xl font-bold mb-8">Welcome to Travel Reviews</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -136,6 +114,8 @@ const App = () => {
   };
 
   return (
+    <>
+     <main>{renderContent()}</main>
     <div className="min-h-screen bg-gray-100">
       {/* Navigation */}
       <nav className="bg-white shadow-md">
@@ -145,7 +125,7 @@ const App = () => {
               <button
                 onClick={() => navigate('/')}
                 className="text-xl font-bold text-gray-800"
-              >
+                >
                 Travel Reviews
               </button>
             </div>
@@ -171,7 +151,7 @@ const App = () => {
                   <button
                     onClick={() => navigate('/signup')}
                     className="px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600"
-                  >
+                    >
                     Sign Up
                   </button>
                 </>
@@ -182,8 +162,9 @@ const App = () => {
       </nav>
 
       {/* Main content */}
-      <main>{renderContent()}</main>
+     
     </div>
+              </>
   );
 };
 
