@@ -104,7 +104,6 @@ async function seed() {
 
     CREATE TABLE reviews (
         id SERIAL PRIMARY KEY,
-        review_id INT NOT NULL,
         user_id SERIAL REFERENCES users(id) NOT NULL,
         place_id SERIAL REFERENCES places(id) NOT NULL,
         rating INT NOT NULL,
@@ -112,13 +111,13 @@ async function seed() {
         content TEXT NOT NULL,
         visit_date DATE NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL,
-        comments VARCHAR(255) NOT NULL
+        updated_at TIMESTAMP,
+        comments VARCHAR(255)
 
       );
 
        CREATE TABLE photos (
-        photo_id SERIAL PRIMARY KEY,
+        id SERIAL PRIMARY KEY,
         user_id SERIAL REFERENCES users(id) NOT NULL,
         place_id SERIAL REFERENCES places(id) NOT NULL,
         review_id SERIAL REFERENCES reviews(id) NOT NULL,
@@ -219,14 +218,14 @@ async function seed() {
                 ;`, [day_of_week, open_time, close_time, is_closed]);
 
         await db.query(`
-              INSERT INTO reviews(review_id, rating, title, content, visit_date, updated_at, comments)
-              VALUES ($1, $2, $3, $4, $5, $6, $7)
-                ;`, [review_id, rating, title, content, visit_date, updated_at, comments]);
+              INSERT INTO reviews(rating, title, content, visit_date, updated_at, comments)
+              VALUES ($1, $2, $3, $4, $5, $6)
+                ;`, [rating, title, content, visit_date, updated_at, comments]);
 
         await db.query(`
-              INSERT INTO photos(photo_id, photo_url, caption, uploaded_at, is_featured)
-              VALUES ($1, $2, $3, $4, $5)
-                ;`, [photo_id, photo_url, caption, uploaded_at, is_featured]);
+              INSERT INTO photos(photo_url, caption, uploaded_at, is_featured)
+              VALUES ($1, $2, $3, $4)
+                ;`, [photo_url, caption, uploaded_at, is_featured]);
 
         await db.query(`
               INSERT INTO comments(is_helpful, commented_at)

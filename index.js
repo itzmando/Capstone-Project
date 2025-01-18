@@ -5,7 +5,7 @@ const multer = require("multer");
 const { Pool } = pg;
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const client = new pg.Client(process.env.DATABASE_URL || "postgres://localhost/acme_world_travel_review_db");
+const client = new pg.Client(process.env.DATABASE_URL || "postgres://dkb@localhost/acme_world_travel_review_db");
 const upload = multer({ dest: "uploads/" });
 app.use(express.json())
 
@@ -26,16 +26,20 @@ const pool = new Pool({
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-
+  console.log(token);
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  // jwt.verify(token, 'shhh', (err, user) => {
+  // jwt.verify(token, process.env.JWT_SECRET || "shhh", (err, user) => {
+
+  jwt.verify(token, 'shhh', (err, user) => {
     if (err) return res.status(403).json({ error: 'Invalid or expired token' });
     req.user = user;
     next();
   });
+
 };
 
 // Authentication Routes
@@ -107,7 +111,7 @@ app.post('/api/auth/login', async (req, res) => {
       [user.user_id]
     );
 
-    res.json({ token });
+    res.json(token);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -115,7 +119,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // User Routes
-app.get('/api/users/profile', authenticateToken, async (req, res) => {
+app.get('/api/users/profile', authenticateToken, async (req, res, next) => {
   try {
     const result = await client.query(
       'SELECT id, username, email, full_name, bio, country, created_at FROM users WHERE id = $1',
@@ -129,7 +133,7 @@ app.get('/api/users/profile', authenticateToken, async (req, res) => {
   }
 });
 
-app.put('/api/users/profile', authenticateToken, async (req, res) => {
+app.put('/api/users/profile', authenticateToken, async (req, res, next) => {
   try {
     const { full_name, bio, country } = req.body;
 
@@ -230,12 +234,12 @@ app.get('/api/places/:id', async (req, res) => {
 });
 
 // Review Routes
-app.post('/api/places/:placeId/reviews', authenticateToken, async (req, res) => {
+app.post('/api/places/:placeId/reviews', authenticateToken, async (req, res, next) => {
   try {
     const { rating, title, content, visit_date } = req.body;
     const { placeId } = req.params;
 
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO reviews (user_id, place_id, rating, title, content, visit_date, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
          RETURNING *`,
@@ -254,7 +258,7 @@ app.get('/api/places/:placeId/reviews', async (req, res) => {
     const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
 
-    const result = await pool.query(
+    const result = await client.query(
       `SELECT r.*, u.username, u.profile_picture_url,
                 COUNT(*) OVER() as total_count
          FROM reviews r
@@ -283,13 +287,13 @@ app.get('/api/places/:placeId/reviews', async (req, res) => {
   }
 });
 
-app.put('/api/reviews/:id', authenticateToken, async (req, res) => {
+app.put('/api/reviews/:id', authenticateToken, async (req, res, next) => {
   try {
     const { rating, title, content } = req.body;
 
     // Check if review belongs to user
-    const review = await pool.query(
-      'SELECT * FROM reviews WHERE review_id = $1',
+    const review = await client.query(
+      'SELECT * FROM reviews WHERE id = $1',
       [req.params.id]
     );
 
@@ -301,13 +305,13 @@ app.put('/api/reviews/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const result = await pool.query(
+    const result = await client.query(
       `UPDATE reviews
          SET rating = COALESCE($1, rating),
              title = COALESCE($2, title),
              content = COALESCE($3, content),
              updated_at = CURRENT_TIMESTAMP
-         WHERE review_id = $4
+         WHERE id = $4
          RETURNING *`,
       [rating, title, content, req.params.id]
     );
@@ -319,11 +323,11 @@ app.put('/api/reviews/:id', authenticateToken, async (req, res) => {
   }
 });
 
-app.delete('/api/reviews/:id', authenticateToken, async (req, res) => {
+app.delete('/api/reviews/:id', authenticateToken, async (req, res, next) => {
   try {
     // Check if review belongs to user
-    const review = await pool.query(
-      'SELECT * FROM reviews WHERE review_id = $1',
+    const review = await client.query(
+      'SELECT * FROM reviews WHERE id = $1',
       [req.params.id]
     );
 
@@ -335,8 +339,8 @@ app.delete('/api/reviews/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    await pool.query(
-      'DELETE FROM reviews WHERE review_id = $1',
+    await client.query(
+      'DELETE FROM reviews WHERE id = $1',
       [req.params.id]
     );
 
@@ -353,10 +357,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something broke!' });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// const PORT = process.env.PORT || 3000;
+// app.listen(PORT, () => {
+//   console.log(`Server running on port ${PORT}`);
+// });
 
 
 
@@ -366,14 +370,14 @@ const init = async () => {
 };
 
 // Bookmark Routes
-app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res) => {
+app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res, next) => {
   try {
     const { notes } = req.body;
     const { placeId } = req.params;
 
     // Check if bookmark already exists
-    const existingBookmark = await pool.query(
-      'SELECT * FROM user_bookmarks WHERE user_id = $1 AND place_id = $2',
+    const existingBookmark = await client.query(
+      'SELECT * FROM bookmarks WHERE user_id = $1 AND place_id = $2',
       [req.user.user_id, placeId]
     );
 
@@ -381,8 +385,8 @@ app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Place already bookmarked' });
     }
 
-    const result = await pool.query(
-      `INSERT INTO user_bookmarks (user_id, place_id, notes, created_at)
+    const result = await client.query(
+      `INSERT INTO bookmarks (user_id, place_id, notes, created_at)
        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
        RETURNING *`,
       [req.user.user_id, placeId, notes]
@@ -395,15 +399,15 @@ app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/api/bookmarks', authenticateToken, async (req, res) => {
+app.get('/api/bookmarks', authenticateToken, async (req, res, next) => {
   try {
     const { page = 1, limit = 10 } = req.query;
     const offset = (page - 1) * limit;
 
-    const result = await pool.query(
+    const result = await client.query(
       `SELECT b.*, p.name, p.description, p.address, c.name as category_name,
               COUNT(*) OVER() as total_count
-       FROM user_bookmarks b
+       FROM bookmarks b
        JOIN places p ON b.place_id = p.place_id
        LEFT JOIN categories c ON p.category_id = c.category_id
        WHERE b.user_id = $1
@@ -430,10 +434,10 @@ app.get('/api/bookmarks', authenticateToken, async (req, res) => {
   }
 });
 
-app.delete('/api/bookmarks/:placeId', authenticateToken, async (req, res) => {
+app.delete('/api/bookmarks/:placeId', authenticateToken, async (req, res, next) => {
   try {
-    const result = await pool.query(
-      'DELETE FROM user_bookmarks WHERE user_id = $1 AND place_id = $2',
+    const result = await client.query(
+      'DELETE FROM bookmarks WHERE user_id = $1 AND place_id = $2',
       [req.user.user_id, req.params.placeId]
     );
 
@@ -449,13 +453,13 @@ app.delete('/api/bookmarks/:placeId', authenticateToken, async (req, res) => {
 });
 
 // Photo Upload Routes
-app.post('/api/places/:placeId/photos', authenticateToken, upload.single('photo'), async (req, res) => {
+app.post('/api/places/:placeId/photos', authenticateToken, upload.single('photo'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const result = await pool.query(
+    const result = await client.query(
       `INSERT INTO photos (user_id, place_id, photo_url, caption, uploaded_at)
        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
        RETURNING *`,
