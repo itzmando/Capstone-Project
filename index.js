@@ -33,7 +33,7 @@ app.use(express.json());
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-
+  console.log(token);
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
   }
@@ -43,6 +43,7 @@ const authenticateToken = (req, res, next) => {
     req.user = user;
     next();
   });
+
 };
 
 // Authentication Routes
@@ -108,7 +109,7 @@ app.post('/api/auth/login', async (req, res) => {
       [user.id]
     );
 
-    res.json({ token });
+    res.json(token);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -116,7 +117,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // User Routes
-app.get('/api/users/profile', authenticateToken, async (req, res) => {
+app.get('/api/users/profile', authenticateToken, async (req, res, next) => {
   try {
     const result = await pool.query(
       'SELECT id, username, email, full_name, bio, country, created_at FROM users WHERE id = $1',
@@ -163,7 +164,7 @@ app.get('/api/places', async (req, res) => {
                LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     queryParams.push(limit, offset);
 
-    const result = await pool.query(query, queryParams);
+    const result = await client.query(query, queryParams);
 
     const totalCount = result.rows[0]?.total_count || 0;
     const totalPages = Math.ceil(totalCount / limit);
@@ -184,7 +185,7 @@ app.get('/api/places', async (req, res) => {
 });
 
 // Review Routes
-app.post('/api/places/:placeId/reviews', authenticateToken, async (req, res) => {
+app.post('/api/places/:placeId/reviews', authenticateToken, async (req, res, next) => {
   try {
     const { rating, title, content, visit_date } = req.body;
     const { placeId } = req.params;
@@ -204,7 +205,7 @@ app.post('/api/places/:placeId/reviews', authenticateToken, async (req, res) => 
 });
 
 // Bookmark Routes
-app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res) => {
+app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res, next) => {
   try {
     const { notes } = req.body;
     const { placeId } = req.params;
@@ -227,7 +228,7 @@ app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res) => {
 });
 
 // Photo Upload Routes
-app.post('/api/places/:placeId/photos', authenticateToken, upload.single('photo'), async (req, res) => {
+app.post('/api/places/:placeId/photos', authenticateToken, upload.single('photo'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
