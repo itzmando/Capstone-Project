@@ -32,7 +32,7 @@ app.use(express.json());
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
-  console.log("authHeader", authHeader ); 
+ 
   const token = authHeader && authHeader.split(' ')[1];
   console.log("token", token );
   if (!token) {
@@ -220,7 +220,7 @@ app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res, next) =>
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    if (err.code === '23505') { // Unique violation
+    if (err.code === '23505') { 
       return res.status(400).json({ error: 'Place already bookmarked' });
     }
     console.error(err);
@@ -270,5 +270,5 @@ const init = async () => {
   }
 };
 
-// Run the application
+
 init();
