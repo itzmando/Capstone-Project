@@ -1,6 +1,6 @@
-import './App.css'
-import React, { useState, useEffect } from 'react';
 
+import React, { useState, useEffect } from 'react';
+import './index.css'
 const App = () => {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
   const [auth, setAuth] = useState({});
@@ -276,6 +276,8 @@ const App = () => {
   };
 
   return (
+    <>
+    <main>{renderContent()}</main>
     <div className="min-h-screen bg-gray-100">
       <nav className="bg-white shadow-md">
         <div className="max-w-6xl mx-auto px-4">
@@ -284,7 +286,7 @@ const App = () => {
               <button
                 onClick={() => navigate('/')}
                 className="text-xl font-bold text-gray-800"
-              >
+                >
                 Travel Reviews
               </button>
             </div>
@@ -310,7 +312,7 @@ const App = () => {
                   <button
                     onClick={() => navigate('/signup')}
                     className="px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600"
-                  >
+                    >
                     Sign Up
                   </button>
                 </>
@@ -322,6 +324,7 @@ const App = () => {
 
       <main>{renderContent()}</main>
     </div>
+              </>
   );
 };
 
