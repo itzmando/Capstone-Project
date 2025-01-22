@@ -51,11 +51,12 @@ const App = () => {
       });
       
       const data = await response.json();
+      console.log("data", data);
       if (!response.ok) {
         throw new Error(data.error || 'Login failed');
       }
       
-      window.localStorage.setItem('token', data.token);
+      window.localStorage.setItem('token', data);
       await attemptLoginWithToken();
       navigate('/');
     } catch (err) {
