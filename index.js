@@ -32,8 +32,9 @@ app.use(express.json());
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
+  console.log("authHeader", authHeader ); 
   const token = authHeader && authHeader.split(' ')[1];
-  console.log(token);
+  console.log("token", token );
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
   }
@@ -164,7 +165,7 @@ app.get('/api/places', async (req, res) => {
                LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     queryParams.push(limit, offset);
 
-    const result = await client.query(query, queryParams);
+    const result = await pool.query(query, queryParams);
 
     const totalCount = result.rows[0]?.total_count || 0;
     const totalPages = Math.ceil(totalCount / limit);
