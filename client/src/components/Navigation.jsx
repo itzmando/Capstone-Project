@@ -1,56 +1,67 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { SearchBar } from './SearchBar';
 
-export const Navigation = ({ auth, isAdmin, navigate, logout }) => {
+export const Navigation = ({ auth, isAdmin, logout, onSearch }) => {
+  const navigate = useNavigate();
   return (
-    <nav className="bg-white shadow-md">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex justify-between h-16 items-center">
-          <div className="flex items-center">
+    <header className="fixed top-0 w-full bg-white shadow-sm z-50">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="h-16 flex items-center justify-between gap-4">
+          {/* Logo */}
+          <div className="flex-shrink-0">
             <button
               onClick={() => navigate('/')}
-              className="text-xl font-bold text-gray-800"
+              className="text-2xl font-bold text-blue-600"
             >
-              Travel Reviews
+              Travel Review
             </button>
-            {auth.user && isAdmin && (
-              <button
-                onClick={() => navigate('/admin')}
-                className="px-4 py-2 rounded-md text-blue-600 hover:bg-blue-50"
-              >
-                Admin Dashboard
-              </button>
-            )}
           </div>
-          <div className="flex items-center space-x-4">
+
+          {/* Search */}
+          <div className="flex-grow max-w-2xl">
+            <SearchBar onSearch={onSearch} />
+          </div>
+
+          {/* Auth Buttons */}
+          <div className="flex-shrink-0">
             {auth.user ? (
-              <>
+              <div className="flex items-center gap-4">
                 <span className="text-gray-600">Welcome, {auth.user.username}</span>
+                {isAdmin && (
+                  <button
+                    onClick={() => navigate('/admin')}
+                    className="text-gray-600 hover:text-blue-600"
+                  >
+                    Admin
+                  </button>
+                )}
                 <button
                   onClick={logout}
-                  className="px-4 py-2 rounded-md text-gray-600 hover:bg-gray-100"
+                  className="text-gray-600 hover:text-blue-600"
                 >
                   Logout
                 </button>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="flex gap-4">
                 <button
                   onClick={() => navigate('/login')}
-                  className="px-4 py-2 rounded-md text-gray-600 hover:bg-gray-100"
+                  className="text-gray-600 hover:text-blue-600"
                 >
                   Login
                 </button>
                 <button
                   onClick={() => navigate('/signup')}
-                  className="px-4 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600"
+                  className="text-gray-600 hover:text-blue-600"
                 >
-                  Sign Up
+                  Register
                 </button>
-              </>
+              </div>
             )}
           </div>
         </div>
       </div>
-    </nav>
+    </header>
   );
 };
