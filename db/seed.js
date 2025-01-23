@@ -1,7 +1,8 @@
-const { db } = require("../index");
+const db = require("./dbConnection");
 const bcrypt = require('bcrypt');
 const fs = require('fs').promises;
 const path = require('path');
+
 const {
   seedCategories,
   seedCountries,
