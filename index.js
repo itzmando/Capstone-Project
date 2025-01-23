@@ -616,32 +616,3 @@ const init = async () => {
 
 
 init();
-
-
-
-/*project-root/
-├── client/
-│   ├── src/
-│   │   ├── App.jsx
-│   │   ├── components/
-│   │   └── services/
-│   │       └── api.js
-│   └── package.json
-│
-└── server/
-    ├── config/
-    │   └── db.js
-    ├── routes/
-    │   ├── auth.routes.js
-    │   ├── places.routes.js
-    │   ├── reviews.routes.js
-    │   ├── photos.routes.js
-    │   └── index.js
-    ├── middleware/
-    │   └── auth.middleware.js
-    ├── models/
-    │   └── index.js
-    ├── db/
-    │   └── seed.js
-    ├── server.js
-    └── package.json*/
