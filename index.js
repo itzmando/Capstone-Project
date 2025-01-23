@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const cors = require('cors');
 const app = express();
 const multer = require("multer");
 
@@ -16,6 +17,12 @@ const photoRoutes = require('./routes/photos');
 
 const upload = multer({ dest: "uploads/" });
 app.use(express.json());
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 
 app.use('/api/auth', authRoutes);

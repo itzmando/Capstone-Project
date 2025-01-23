@@ -12,10 +12,11 @@ export const useAuth = () => {
     const token = window.localStorage.getItem('token');
     if (token) {
       try {
-        const response = await fetch('/api/users/profile', {
+        const response = await fetch('http://localhost:3000/api/users/profile', {
           headers: {
-            Authorization: `Bearer ${token}`,
-          },
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
         });
         if (response.ok) {
           const userData = await response.json();
@@ -34,7 +35,7 @@ export const useAuth = () => {
 
   const login = async ({ email, password }) => {
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('http://localhost:3000/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -42,11 +43,11 @@ export const useAuth = () => {
         body: JSON.stringify({ email, password }),
       });
       
-      const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
+        throw new Error(await response.text());
       }
       
+      const data = await response.json();
       window.localStorage.setItem('token', data);
       await attemptLoginWithToken();
     } catch (err) {
@@ -57,7 +58,7 @@ export const useAuth = () => {
 
   const register = async ({ username, email, password, full_name }) => {
     try {
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch('http://localhost:3000/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

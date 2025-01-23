@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const { authenticateToken } = require('../middleware/auth');
 
-router.get('/api/users/profile', authenticateToken, async (req, res, next) => {
+router.get('/profile', authenticateToken, async (req, res, next) => {
     try {
       const result = await pool.query(
         'SELECT id, username, email, full_name, bio, country, created_at FROM users WHERE id = $1',
