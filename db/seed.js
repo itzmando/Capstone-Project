@@ -1,13 +1,21 @@
-// Clear and repopulate the database.
-
 const { db } = require("../index");
 const bcrypt = require('bcrypt');
+const {
+  categories,
+  countries,
+  cities,
+  users,
+  admins,
+  places,
+  reviews,
+  photos,
+  bookmarks
+} = require('./data');
 
 
-async function seed() {
-  console.log("Seeding the database.");
-  try {
-    await db.query(`
+const createSchema = async () => {
+  console.log("Creating database schema...");
+  await db.query(`
       DROP TABLE IF EXISTS comments, photos, reviews, operating_hours, bookmarks, 
     places, cities, countries, categories, users, admins CASCADE;
 
@@ -20,7 +28,7 @@ CREATE TABLE users (
     profile_picture_url VARCHAR(255),
     bio TEXT,
     country VARCHAR(100) NOT NULL,
-    role VARCHAR(20) NOT NULL DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'admin')),
+    role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'admin')),
     is_verified BOOLEAN NOT NULL DEFAULT false,
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -143,7 +151,8 @@ CREATE TABLE reviews (
     moderation_status VARCHAR(20) NOT NULL DEFAULT 'approved' CHECK (moderation_status IN ('pending', 'approved', 'rejected')),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    CONSTRAINT visit_date_not_future CHECK (visit_date <= CURRENT_DATE)
+    CONSTRAINT visit_date_not_future CHECK (visit_date <= CURRENT_DATE),
+    CONSTRAINT one_review_per_user_place UNIQUE (user_id, place_id)
 );
 
 CREATE TABLE bookmarks (
@@ -244,8 +253,9 @@ FROM
     console.log("Database schema created successfully.");
     
     console.log("Seeding database with initial data...");
+  };
 
-
+    const seedCategories = async () => {
       const categories = [
         { name: 'Restaurant', description: 'Places to eat', icon_url: 'restaurant.png' },
         { name: 'Museum', description: 'Cultural venues', icon_url: 'museum.png' },
@@ -253,15 +263,17 @@ FROM
         { name: 'Cafe', description: 'Coffee and light meals', icon_url: 'cafe.png' },
         { name: 'Shopping', description: 'Retail locations', icon_url: 'shopping.png' }
       ];
-  
+    
       for (const category of categories) {
         await db.query(`
           INSERT INTO categories (name, description, icon_url)
           VALUES ($1, $2, $3)
         `, [category.name, category.description, category.icon_url]);
       }
-
-
+      console.log("Categories seeded successfully.");
+    };
+    
+    const seedCountries = async () => {
       const countries = [
         { name: 'United States', continent: 'North America' },
         { name: 'Japan', continent: 'Asia' },
@@ -269,15 +281,17 @@ FROM
         { name: 'Australia', continent: 'Oceania' },
         { name: 'Brazil', continent: 'South America' }
       ];
-  
+    
       for (const country of countries) {
         await db.query(`
           INSERT INTO countries (name, continent)
           VALUES ($1, $2)
         `, [country.name, country.continent]);
       }
-  
-
+      console.log("Countries seeded successfully.");
+    };
+    
+    const seedCities = async () => {
       const cities = [
         {
           country: 'United States',
@@ -296,9 +310,36 @@ FROM
           lng: 139.6503,
           timezone: 'Asia/Tokyo',
           population: 37400068
+        },
+        {
+          country: 'France',
+          name: 'Paris',
+          state: 'Île-de-France',
+          lat: 48.8566,
+          lng: 2.3522,
+          timezone: 'Europe/Paris',
+          population: 2148271
+        },
+        {
+          country: 'Brazil',
+          name: 'Rio de Janeiro',
+          state: 'RJ',
+          lat: -22.9068,
+          lng: -43.1729,
+          timezone: 'America/Sao_Paulo',
+          population: 6747815
+        },
+        {
+          country: 'Australia',
+          name: 'Sydney',
+          state: 'NSW',
+          lat: -33.8688,
+          lng: 151.2093,
+          timezone: 'Australia/Sydney',
+          population: 5367206
         }
       ];
-  
+      
       for (const city of cities) {
         await db.query(`
           INSERT INTO cities (
@@ -310,13 +351,16 @@ FROM
           )
         `, [city.country, city.name, city.state, city.lat, city.lng, city.timezone, city.population]);
       }
+      console.log("Cities seeded successfully.");
+    };
   
+    const seedUsers = async () => {
       const saltRounds = 10;
       const users = [
         {
           username: 'johndoe',
           email: 'john@example.com',
-          password: 'password123', 
+          password: 'password123',
           full_name: 'John Doe',
           country: 'United States',
           role: 'user'
@@ -344,6 +388,30 @@ FROM
           full_name: 'Mike Wilson',
           country: 'United States',
           role: 'admin'
+        },
+        {
+          username: 'pierre_dubois',
+          email: 'pierre@example.com',
+          password: 'password789',
+          full_name: 'Pierre Dubois',
+          country: 'France',
+          role: 'user'
+        },
+        {
+          username: 'maria_silva',
+          email: 'maria@example.com',
+          password: 'password321',
+          full_name: 'Maria Silva',
+          country: 'Brazil',
+          role: 'user'
+        },
+        {
+          username: 'admin_emma',
+          email: 'emma.admin@example.com',
+          password: 'adminpass202',
+          full_name: 'Emma Thompson',
+          country: 'Australia',
+          role: 'admin'
         }
       ];
   
@@ -351,17 +419,9 @@ FROM
         const hashedPassword = await bcrypt.hash(user.password, saltRounds);
         await db.query(`
           INSERT INTO users (
-            username,
-            email,
-            password_hash,
-            full_name,
-            country,
-            role,
-            is_verified,
-            is_active
+            username, email, password_hash, full_name, country, role, is_verified, is_active
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-          RETURNING id
         `, [
           user.username,
           user.email,
@@ -369,11 +429,14 @@ FROM
           user.full_name,
           user.country,
           user.role,
-          true, // is_verified
-          true  // is_active
+          true,
+          true
         ]);
       }
+      console.log("Users seeded successfully.");
+    };
   
+    const seedAdmins = async () => {
       const admins = [
         {
           username: 'admin_sarah',
@@ -412,29 +475,37 @@ FROM
           review_categories_handled: ['Museum', 'Park', 'Shopping'],
           preferred_categories: ['Museum', 'Park'],
           review_notes: 'Content moderator focused on cultural and outdoor venues'
+        },
+        {
+          username: 'admin_emma',
+          department: 'User Experience',
+          can_add_reviews: true,
+          can_edit_reviews: true,
+          can_delete_reviews: false,
+          can_moderate_reviews: true,
+          reviews_added: 180,
+          reviews_edited: 420,
+          reviews_deleted: 0,
+          reviews_moderated: 950,
+          average_review_score: 4.5,
+          review_approval_rate: 95.0,
+          review_response_time: 18,
+          flagged_reviews_handled: 85,
+          review_categories_handled: ['Restaurant', 'Cafe', 'Shopping', 'Park'],
+          preferred_categories: ['Shopping', 'Park'],
+          review_notes: 'UX specialist focused on improving user engagement and content quality'
         }
       ];
   
       for (const admin of admins) {
         await db.query(`
           INSERT INTO admins (
-            user_id,
-            department,
-            can_add_reviews,
-            can_edit_reviews,
-            can_delete_reviews,
-            can_moderate_reviews,
-            reviews_added,
-            reviews_edited,
-            reviews_deleted,
-            reviews_moderated,
-            average_review_score,
-            review_approval_rate,
-            review_response_time,
-            flagged_reviews_handled,
-            review_categories_handled,
-            preferred_categories,
-            review_notes
+            user_id, department, can_add_reviews, can_edit_reviews,
+            can_delete_reviews, can_moderate_reviews, reviews_added,
+            reviews_edited, reviews_deleted, reviews_moderated,
+            average_review_score, review_approval_rate, review_response_time,
+            flagged_reviews_handled, review_categories_handled,
+            preferred_categories, review_notes
           )
           VALUES (
             (SELECT id FROM users WHERE username = $1),
@@ -459,8 +530,9 @@ FROM
           admin.preferred_categories,
           admin.review_notes
         ]);
-      }
+      }};
       
+      const seedPlaces = async () => {
       const places = [
         {
           category: 'Restaurant',
@@ -485,6 +557,78 @@ FROM
           website: 'https://metropolitan.example.com',
           phone: '+1-212-555-0234',
           price_level: 3
+        },
+        {
+          category: 'Restaurant',
+          city: 'Paris',
+          name: 'Le Petit Bistrot',
+          description: 'Classic French cuisine in a cozy setting',
+          address: '45 Rue de la Tour Eiffel',
+          lat: 48.8584,
+          lng: 2.2945,
+          website: 'https://lepetitbistrot.example.com',
+          phone: '+33-1-23-45-67-89',
+          price_level: 3
+        },
+        {
+          category: 'Cafe',
+          city: 'Paris',
+          name: 'Café des Artistes',
+          description: 'Charming café featuring local artwork',
+          address: '27 Rue des Beaux-Arts',
+          lat: 48.8566,
+          lng: 2.3522,
+          website: 'https://cafedesartistes.example.com',
+          phone: '+33-1-98-76-54-32',
+          price_level: 2
+        },
+        {
+          category: 'Museum',
+          city: 'Rio de Janeiro',
+          name: 'Museu de Arte Moderna',
+          description: 'Contemporary art in a modernist building',
+          address: 'Av. Infante Dom Henrique, 85',
+          lat: -22.9156,
+          lng: -43.1731,
+          website: 'https://mam.example.com',
+          phone: '+55-21-3883-5600',
+          price_level: 2
+        },
+        {
+          category: 'Park',
+          city: 'Rio de Janeiro',
+          name: 'Parque do Flamengo',
+          description: 'Expansive waterfront park with recreation areas',
+          address: 'Av. Infante Dom Henrique',
+          lat: -22.9344,
+          lng: -43.1729,
+          website: 'https://parqueflamengo.example.com',
+          phone: '+55-21-2555-1234',
+          price_level: 1
+        },
+        {
+          category: 'Shopping',
+          city: 'Sydney',
+          name: 'Harbour Market',
+          description: 'Waterfront shopping complex with local vendors',
+          address: '22 Circular Quay West',
+          lat: -33.8568,
+          lng: 151.2092,
+          website: 'https://harbourmarket.example.com',
+          phone: '+61-2-9555-7890',
+          price_level: 3
+        },
+        {
+          category: 'Restaurant',
+          city: 'Sydney',
+          name: 'Ocean View Seafood',
+          description: 'Fresh seafood with harbour views',
+          address: '88 George Street',
+          lat: -33.8614,
+          lng: 151.2099,
+          website: 'https://oceanviewseafood.example.com',
+          phone: '+61-2-9555-4321',
+          price_level: 4
         }
       ];
   
@@ -492,12 +636,14 @@ FROM
         const placeId = await db.query(`
           INSERT INTO places (
             category_id, city_id, name, description, address,
-            latitude, longitude, website_url, phone_number, price_level
+            latitude, longitude, website_url, phone_number, price_level,
+            slug
           )
           VALUES (
             (SELECT id FROM categories WHERE name = $1),
             (SELECT id FROM cities WHERE name = $2),
-            $3, $4, $5, $6, $7, $8, $9, $10
+            $3, $4, $5, $6, $7, $8, $9, $10,
+            $11
           )
           RETURNING id
         `, [
@@ -510,27 +656,237 @@ FROM
           place.lng,
           place.website,
           place.phone,
-          place.price_level
+          place.price_level,
+          place.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
         ]);
+
+        const customOperatingHours = {
+          'Le Petit Bistrot': {
+            1: { open: '11:30', close: '23:00', closed: false },
+            2: { open: '11:30', close: '23:00', closed: false },
+            3: { open: '11:30', close: '23:00', closed: false },
+            4: { open: '11:30', close: '23:30', closed: false },
+            5: { open: '11:30', close: '23:30', closed: false },
+            6: { open: '11:30', close: '23:30', closed: false },
+            0: { open: '12:00', close: '22:00', closed: false }
+          },
+          'Ocean View Seafood': {
+            1: { open: '12:00', close: '22:00', closed: false },
+            2: { open: '12:00', close: '22:00', closed: false },
+            3: { open: '12:00', close: '22:00', closed: false },
+            4: { open: '12:00', close: '23:00', closed: false },
+            5: { open: '12:00', close: '23:30', closed: false },
+            6: { open: '12:00', close: '23:30', closed: false },
+            0: { open: '12:00', close: '21:00', closed: false }
+          }
+        };
+
+ const customHours = customOperatingHours[place.name];
   
-       
-        for (let day = 0; day < 7; day++) {
-          await db.query(`
-            INSERT INTO operating_hours (place_id, day_of_week, open_time, close_time, is_closed)
-            VALUES ($1, $2, $3, $4, $5)
-          `, [placeId.rows[0].id, day, '09:00', '22:00', day === 0]); 
-        }
-      }
-  
-      console.log("Database seeded successfully!");
-    } catch (err) {
-      console.error("Error initializing database:", err);
-      throw err;
-    }
+  for (let day = 0; day < 7; day++) {
+    const hours = customHours ? customHours[day] : {
+      open: '09:00',
+      close: '22:00',
+      closed: day === 0
+    };
+
+    await db.query(`
+      INSERT INTO operating_hours (place_id, day_of_week, open_time, close_time, is_closed)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [
+      placeId.rows[0].id,
+      day,
+      hours.open,
+      hours.close,
+      hours.closed
+    ]);
   }
+ }
+};
 
-if (require.main === module) {
-  seed();
+const seedReviews = async () => {
+const reviews = [
+  {
+    username: 'johndoe',
+    place_name: 'Central Bistro',
+    rating: 4,
+    title: 'Excellent dining experience',
+    content: 'The atmosphere was sophisticated and the food was exceptional. Highly recommended for special occasions.',
+    visit_date: '2024-01-15'
+  },
+  {
+    username: 'janedoe',
+    place_name: 'Metropolitan Museum',
+    rating: 5,
+    title: 'World-class exhibits',
+    content: "Spent an entire day here and still didn't see everything. The Egyptian collection is particularly impressive.",
+    visit_date: '2024-01-10'
+  },
+  {
+    username: 'pierre_dubois',
+    place_name: 'Le Petit Bistrot',
+    rating: 5,
+    title: 'Authentic French cuisine',
+    content: "Reminds me of my grandmother's cooking. The coq au vin was perfect.",
+    visit_date: '2024-01-20'
+  }
+];
+
+for (const review of reviews) {
+  const reviewId = await db.query(`
+    INSERT INTO reviews (
+      user_id,
+      place_id,
+      rating,
+      title,
+      content,
+      visit_date
+    )
+    VALUES (
+      (SELECT id FROM users WHERE username = $1),
+      (SELECT id FROM places WHERE name = $2),
+      $3, $4, $5, $6
+    )
+    RETURNING id
+  `, [
+    review.username,
+    review.place_name,
+    review.rating,
+    review.title,
+    review.content,
+    review.visit_date
+  ]);
+  await db.query(`
+    UPDATE places
+    SET 
+      average_rating = (
+        SELECT AVG(rating)::DECIMAL(3,2)
+        FROM reviews
+        WHERE place_id = (SELECT id FROM places WHERE name = $1)
+      ),
+      review_count = (
+        SELECT COUNT(*)
+        FROM reviews
+        WHERE place_id = (SELECT id FROM places WHERE name = $1)
+      )
+    WHERE name = $1
+  `, [review.place_name]);
+}};
+
+const seedPhotos = async () => {
+const photos = [
+  {
+    username: 'johndoe',
+    place_name: 'Central Bistro',
+    photo_url: 'https://example.com/photos/bistro-interior.jpg',
+    thumbnail_url: 'https://example.com/photos/bistro-interior-thumb.jpg',
+    caption: 'Elegant dining room',
+    metadata: { width: 1920, height: 1080, taken_at: '2024-01-15T19:30:00Z' }
+  },
+  {
+    username: 'pierre_dubois',
+    place_name: 'Le Petit Bistrot',
+    photo_url: 'https://example.com/photos/french-cuisine.jpg',
+    thumbnail_url: 'https://example.com/photos/french-cuisine-thumb.jpg',
+    caption: 'Perfectly prepared coq au vin',
+    metadata: { width: 1920, height: 1080, taken_at: '2024-01-20T20:15:00Z' }
+  }
+];
+
+for (const photo of photos) {
+  await db.query(`
+    INSERT INTO photos (
+      user_id,
+      place_id,
+      photo_url,
+      thumbnail_url,
+      caption,
+      metadata
+    )
+    VALUES (
+      (SELECT id FROM users WHERE username = $1),
+      (SELECT id FROM places WHERE name = $2),
+      $3, $4, $5, $6
+    )
+  `, [
+    photo.username,
+    photo.place_name,
+    photo.photo_url,
+    photo.thumbnail_url,
+    photo.caption,
+    photo.metadata
+  ]);
+}};
+
+const seedBookmarks = async () => {
+const bookmarks = [
+  {
+    username: 'johndoe',
+    place_name: 'Le Petit Bistrot',
+    collection_name: 'Must Visit in Paris',
+    notes: 'Recommended by Pierre, known for authentic French cuisine'
+  },
+  {
+    username: 'janedoe',
+    place_name: 'Ocean View Seafood',
+    collection_name: 'Sydney Restaurants',
+    notes: 'Famous for fresh seafood and harbor views'
+  }
+];
+
+for (const bookmark of bookmarks) {
+  await db.query(`
+    INSERT INTO bookmarks (
+      user_id,
+      place_id,
+      collection_name,
+      notes
+    )
+    VALUES (
+      (SELECT id FROM users WHERE username = $1),
+      (SELECT id FROM places WHERE name = $2),
+      $3, $4
+    )
+  `, [
+    bookmark.username,
+    bookmark.place_name,
+    bookmark.collection_name,
+    bookmark.notes
+  ]);
+}};
+
+const seed = async () => {
+  try {
+    console.log("Starting database seeding...");
+    
+    await createSchema();
+    await seedCategories();
+    await seedCountries();
+    await seedCities();
+    await seedUsers();
+    await seedAdmins();
+    await seedPlaces();
+    await seedReviews();
+    await seedPhotos();
+    await seedBookmarks();
+    
+    console.log("Database seeding completed successfully!");
+  } catch (error) {
+    console.error("Error seeding database:", error);
+    throw error;
+  }
+};
+
+module.exports = {
+  seed,
+  createSchema,
+  seedCategories,
+  seedCountries,
+  seedCities,
+  seedUsers,
+  seedAdmins,
+  seedPlaces,
+  seedReviews,
+  seedPhotos,
+  seedBookmarks
 }
-
-module.exports = seed;

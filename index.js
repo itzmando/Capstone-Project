@@ -47,6 +47,21 @@ const authenticateToken = (req, res, next) => {
 
 };
 
+const isAdmin = async (req, res, next) => {
+  try {
+    const result = await pool.query(
+      'SELECT role FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    if (result.rows[0].role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    next();
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 // Authentication Routes
 app.post('/api/auth/register', async (req, res) => {
   try {
@@ -128,6 +143,122 @@ app.get('/api/users/profile', authenticateToken, async (req, res, next) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/users/reviews', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT r.*, p.name as place_name 
+       FROM reviews r
+       JOIN places p ON r.place_id = p.id
+       WHERE r.user_id = $1
+       ORDER BY r.created_at DESC`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.get('/api/users/comments', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT c.*, r.title as review_title, p.name as place_name
+       FROM comments c
+       JOIN reviews r ON c.review_id = r.id
+       JOIN places p ON r.place_id = p.id
+       WHERE c.user_id = $1
+       ORDER BY c.created_at DESC`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+//Admin Routes
+app.get('/api/admin/users', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT u.id, u.username, u.email, u.role, u.full_name, 
+             COUNT(DISTINCT r.id) as review_count
+      FROM users u
+      LEFT JOIN reviews r ON u.id = r.user_id
+      GROUP BY u.id
+      ORDER BY u.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/admin/places', authenticateToken, isAdmin, upload.single('photo'), async (req, res) => {
+  try {
+    const { name, category_id, city_id, description } = req.body;
+    if (!name || !category_id || !req.file) {
+      return res.status(400).json({ error: 'Name, category, and photo are required' });
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO places (name, category_id, city_id, description, photo_url)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [name, category_id, city_id, description, `/uploads/${req.file.filename}`]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.put('/api/admin/places/:id', authenticateToken, isAdmin, upload.single('photo'), async (req, res) => {
+  try {
+    const { name, category_id, city_id, description } = req.body;
+    if (!name || !category_id) {
+      return res.status(400).json({ error: 'Name and category are required' });
+    }
+    
+    let photoUrl = undefined;
+    if (req.file) {
+      photoUrl = `/uploads/${req.file.filename}`;
+    }
+    
+    const result = await pool.query(
+      `UPDATE places 
+       SET name = $1, category_id = $2, city_id = $3, description = $4 ${photoUrl ? ', photo_url = $5' : ''}
+       WHERE id = ${photoUrl ? '$6' : '$5'}
+       RETURNING *`,
+      photoUrl 
+        ? [name, category_id, city_id, description, photoUrl, req.params.id]
+        : [name, category_id, city_id, description, req.params.id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Place not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/api/admin/places/:id', authenticateToken, isAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM places WHERE id = $1 RETURNING *',
+      [req.params.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Place not found' });
+    }
+    res.status(204).send();
+  } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -244,7 +375,6 @@ app.get('/api/places/:id', async (req, res) => {
   }
 });
 
-// Review Routes
 app.post('/api/places/:placeId/reviews', authenticateToken, async (req, res, next) => {
   try {
     const { rating, title, content, visit_date } = req.body;
@@ -259,11 +389,64 @@ app.post('/api/places/:placeId/reviews', authenticateToken, async (req, res, nex
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
+    if (err.code === '23505') { return res.status(400).json({ error: 'You have already reviewed this place' });
+  } 
     console.error(err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
+// Review Routes
+app.put('/api/reviews/:id', authenticateToken, async (req, res) => {
+  try {
+    const { rating, title, content } = req.body;
+    const result = await pool.query(
+      `UPDATE reviews 
+       SET rating = $1, title = $2, content = $3, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $4 AND user_id = $5
+       RETURNING *`,
+      [rating, title, content, req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Review not found or unauthorized' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.post('/api/reviews/:reviewId/comments', authenticateToken, async (req, res) => {
+  try {
+    const { content } = req.body;
+    const result = await pool.query(
+      `INSERT INTO comments (user_id, review_id, content)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [req.user.id, req.params.reviewId, content]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/api/reviews/:id', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM reviews WHERE id = $1 AND user_id = $2 RETURNING *',
+      [req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Review not found or unauthorized' });
+    }
+    res.status(204).send();
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+//Search Routes
 app.get('/api/search', async (req, res) => {
   try {
     const { q, category, city, rating, page = 1, limit = 10 } = req.query;
@@ -330,6 +513,7 @@ queryParams.push(limit, offset);
   }
 });
 
+
 // Bookmark Routes
 app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res, next) => {
   try {
@@ -349,6 +533,41 @@ app.post('/api/bookmarks/:placeId', authenticateToken, async (req, res, next) =>
       return res.status(400).json({ error: 'Place already bookmarked' });
     }
     console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Update comment
+app.put('/api/comments/:id', authenticateToken, async (req, res) => {
+  try {
+    const { content } = req.body;
+    const result = await pool.query(
+      `UPDATE comments
+       SET content = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND user_id = $3
+       RETURNING *`,
+      [content, req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Comment not found or unauthorized' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+app.delete('/api/comments/:id', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'DELETE FROM comments WHERE id = $1 AND user_id = $2 RETURNING *',
+      [req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Comment not found or unauthorized' });
+    }
+    res.status(204).send();
+  } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -382,7 +601,7 @@ app.use((err, req, res, next) => {
 
 const init = async () => {
   try {
-    const seed = require('./db/seed');
+    const { seed }= require('./db/seed');
     await seed();
     
     const PORT = process.env.PORT || 3000;
@@ -397,3 +616,32 @@ const init = async () => {
 
 
 init();
+
+
+
+/*project-root/
+├── client/
+│   ├── src/
+│   │   ├── App.jsx
+│   │   ├── components/
+│   │   └── services/
+│   │       └── api.js
+│   └── package.json
+│
+└── server/
+    ├── config/
+    │   └── db.js
+    ├── routes/
+    │   ├── auth.routes.js
+    │   ├── places.routes.js
+    │   ├── reviews.routes.js
+    │   ├── photos.routes.js
+    │   └── index.js
+    ├── middleware/
+    │   └── auth.middleware.js
+    ├── models/
+    │   └── index.js
+    ├── db/
+    │   └── seed.js
+    ├── server.js
+    └── package.json*/
