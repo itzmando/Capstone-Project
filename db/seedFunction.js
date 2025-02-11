@@ -4,7 +4,6 @@ const {
   countries,
   cities,
   users,
-  admins,
   places,
   reviews,
   photos,
@@ -98,49 +97,6 @@ const seedUsers = async (db) => {
       throw error;
     }
   };
-
-  const seedAdmins = async (db) => {
-    try {
-    for (const admin of admins) {
-      await db.query(`
-        INSERT INTO admins (
-          user_id, department, can_add_reviews, can_edit_reviews,
-          can_delete_reviews, can_moderate_reviews, reviews_added,
-          reviews_edited, reviews_deleted, reviews_moderated,
-          average_review_score, review_approval_rate, review_response_time,
-          flagged_reviews_handled, review_categories_handled,
-          preferred_categories, review_notes
-        )
-        VALUES (
-          (SELECT id FROM users WHERE username = $1),
-          $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
-        )
-      `, [
-        admin.username,
-        admin.department,
-        admin.can_add_reviews,
-        admin.can_edit_reviews,
-        admin.can_delete_reviews,
-        admin.can_moderate_reviews,
-        admin.reviews_added,
-        admin.reviews_edited,
-        admin.reviews_deleted,
-        admin.reviews_moderated,
-        admin.average_review_score,
-        admin.review_approval_rate,
-        admin.review_response_time,
-        admin.flagged_reviews_handled,
-        admin.review_categories_handled,
-        admin.preferred_categories,
-        admin.review_notes
-      ]);
-    }
-    console.log("Admins seeded successfully.");
-} catch (error) {
-    console.error("Error seeding admins:", error);
-    throw error;
-  }
-};
 
 const seedPlaces = async (db) => {
     try {
@@ -259,7 +215,7 @@ const seedOperatingHours = async (db, placeId, placeName) => {
                 await db.query(`
                      UPDATE places
                       SET 
-                       average_rating = (
+                       avg_rating = (
                        SELECT AVG(rating)::DECIMAL(3,2)
                         FROM reviews
                         WHERE place_id = (SELECT id FROM places WHERE name = $1)
@@ -372,7 +328,6 @@ seedCategories,
 seedCountries,
 seedCities,
 seedUsers,
-seedAdmins,
 seedPlaces,
 seedOperatingHours,
 seedReviews,

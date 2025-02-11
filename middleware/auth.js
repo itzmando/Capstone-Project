@@ -1,33 +1,37 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-  const secret = process.env.JWT_SECRET || 'shhh';
-  jwt.verify(token, secret, (err, user) => {
-    if (err) return res.status(403).json({ error: 'Invalid or expired token' });
-    req.user = user;
-    next();
-  });
-};
-
-const isAdmin = async (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   try {
-    const result = await pool.query(
-      'SELECT role FROM users WHERE id = $1',
-      [req.user.id]
-    );
-    if (result.rows[0].role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
     }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'shhh');
+    const userResult = await pool.query(
+      'SELECT id, email, username FROM users WHERE id = $1',
+      [decoded.id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    req.user = userResult.rows[0];
     next();
   } catch (err) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('Auth error:', err);
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expired' });
+    }
+    res.status(500).json({ error: 'Auth server error' });
   }
 };
 
-module.exports = { authenticateToken, isAdmin };
+module.exports = { authenticateToken };

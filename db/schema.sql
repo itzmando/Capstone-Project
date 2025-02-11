@@ -1,5 +1,5 @@
 DROP TABLE IF EXISTS comments, photos, reviews, operating_hours, bookmarks, 
-places, cities, countries, categories, users, admins CASCADE;
+places, cities, countries, categories, users CASCADE;
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -10,55 +10,12 @@ CREATE TABLE users (
     profile_picture_url VARCHAR(255),
     bio TEXT,
     country VARCHAR(100) NOT NULL,
-   role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'moderator', 'admin')),
+    role VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'moderator')),
     is_verified BOOLEAN NOT NULL DEFAULT false,
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_login TIMESTAMP,
     last_password_change TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
-CREATE TABLE admins (
-    id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    department VARCHAR(50) NOT NULL,
-    hire_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    last_access_date TIMESTAMP,
-    
-    can_add_reviews BOOLEAN DEFAULT false,
-    can_edit_reviews BOOLEAN DEFAULT false,
-    can_delete_reviews BOOLEAN DEFAULT false,
-    can_moderate_reviews BOOLEAN DEFAULT false,
-    
-    reviews_added INTEGER DEFAULT 0,
-    reviews_edited INTEGER DEFAULT 0,
-    reviews_deleted INTEGER DEFAULT 0,
-    reviews_moderated INTEGER DEFAULT 0,
-    
-    average_review_score DECIMAL(3,2),
-    review_approval_rate DECIMAL(5,2),
-    review_response_time INTEGER,
-    flagged_reviews_handled INTEGER DEFAULT 0,
-    
-    last_review_action_date TIMESTAMP,
-    last_moderation_date TIMESTAMP,
-    total_actions_performed INTEGER DEFAULT 0,
-    
-    review_categories_handled VARCHAR[] DEFAULT ARRAY[]::VARCHAR[],
-    preferred_categories VARCHAR[] DEFAULT ARRAY[]::VARCHAR[],
-    
-    is_active BOOLEAN NOT NULL DEFAULT true,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    created_by INTEGER REFERENCES users(id),
-    updated_by INTEGER REFERENCES users(id),
-    
-    review_action_log JSONB DEFAULT '[]',
-    review_notes TEXT,
-    
-    UNIQUE(user_id),
-    CONSTRAINT valid_review_score CHECK (average_review_score BETWEEN 1 AND 5),
-    CONSTRAINT valid_approval_rate CHECK (review_approval_rate BETWEEN 0 AND 100)
 );
 
 CREATE TABLE categories (
@@ -82,7 +39,7 @@ CREATE TABLE cities (
     id SERIAL PRIMARY KEY,
     country_id INTEGER REFERENCES countries(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    slug VARCHAR(100) NULL,
+    slug VARCHAR(100),
     state_province VARCHAR(100),
     latitude DECIMAL(10,8) NOT NULL,
     longitude DECIMAL(11,8) NOT NULL,
@@ -101,7 +58,7 @@ CREATE TABLE places (
     category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
     city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    slug VARCHAR(100) NULL,
+    slug VARCHAR(100),
     description TEXT,
     address TEXT NOT NULL,
     latitude DECIMAL(10,8) NOT NULL,
@@ -109,7 +66,7 @@ CREATE TABLE places (
     website_url VARCHAR(255),
     phone_number VARCHAR(50),
     price_level SMALLINT CHECK (price_level BETWEEN 1 AND 5),
-    average_rating DECIMAL(3,2) CHECK (average_rating BETWEEN 1 AND 5),
+    avg_rating DECIMAL(3,2) CHECK (avg_rating BETWEEN 1 AND 5),
     review_count INTEGER NOT NULL DEFAULT 0,
     status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'archived')),
     submission_status VARCHAR(20) NOT NULL DEFAULT 'approved' CHECK (submission_status IN ('pending', 'approved', 'rejected')),
@@ -189,7 +146,6 @@ CREATE TABLE comments (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Indexes for better query performance
 CREATE INDEX idx_places_category ON places(category_id);
 CREATE INDEX idx_places_city ON places(city_id);
 CREATE INDEX idx_places_status ON places(status);
@@ -202,32 +158,3 @@ CREATE INDEX idx_comments_review ON comments(review_id);
 CREATE INDEX idx_users_username_email ON users(username, email);
 CREATE INDEX idx_bookmarks_user ON bookmarks(user_id);
 CREATE INDEX idx_operating_hours_place ON operating_hours(place_id);
-CREATE INDEX idx_admins_user ON admins(user_id);
-CREATE INDEX idx_admins_department ON admins(department);
-
--- Admin view for review management
-CREATE VIEW admin_review_management AS
-SELECT 
-    r.id AS review_id,
-    r.title AS review_title,
-    r.content AS review_content,
-    r.rating,
-    r.visit_date,
-    r.created_at AS review_created_at,
-    r.moderation_status,
-    r.helpful_votes,
-    r.report_count,
-    u.username AS reviewer_username,
-    u.email AS reviewer_email,
-    p.name AS place_name,
-    p.category_id,
-    c.name AS category_name,
-    city.name AS city_name,
-    country.name AS country_name
-FROM 
-    reviews r
-    JOIN users u ON r.user_id = u.id
-    JOIN places p ON r.place_id = p.id
-    JOIN categories c ON p.category_id = c.id
-    JOIN cities city ON p.city_id = city.id
-    JOIN countries country ON city.country_id = country.id;
