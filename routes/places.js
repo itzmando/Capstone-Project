@@ -2,8 +2,6 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const { authenticateToken } = require('../middleware/auth');
-const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
 
 router.get('/', async (req, res) => {
   try {
@@ -38,7 +36,6 @@ router.get('/', async (req, res) => {
     queryParams.push(limit, offset);
 
     const result = await pool.query(query, queryParams);
-
     const totalCount = result.rows[0]?.total_count || 0;
     const totalPages = Math.ceil(totalCount / limit);
 
@@ -57,10 +54,30 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/featured-reviews', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT r.*, 
+             u.username as user_name, 
+             p.name as place_name 
+      FROM reviews r
+      JOIN users u ON r.user_id = u.id
+      JOIN places p ON r.place_id = p.id
+      WHERE r.rating >= 4
+      ORDER BY r.created_at DESC
+      LIMIT 5
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+  
     const placeResult = await pool.query(`
       SELECT p.*, 
              c.name as category_name,
@@ -80,35 +97,35 @@ router.get('/:id', async (req, res) => {
     }
 
     const reviewsResult = await pool.query(`
-      SELECT r.*, 
-             u.username, 
-             u.full_name,
-             COUNT(p.id) as photo_count
+      SELECT r.*,
+             u.username,
+             (
+               SELECT json_agg(
+                 json_build_object(
+                   'id', p.id,
+                   'photo_url', p.photo_url,
+                   'caption', p.caption,
+                   'uploaded_at', p.uploaded_at
+                 )
+               )
+               FROM photos p
+               WHERE p.review_id = r.id
+             ) as photos
       FROM reviews r
       JOIN users u ON r.user_id = u.id
-      LEFT JOIN photos p ON r.id = p.review_id
       WHERE r.place_id = $1
-      GROUP BY r.id, u.username, u.full_name
       ORDER BY r.created_at DESC
-      LIMIT 10
-    `, [id]);
-
-    const photosResult = await pool.query(`
-      SELECT p.*, u.username
-      FROM photos p
-      JOIN users u ON p.user_id = u.id
-      WHERE p.place_id = $1
-      ORDER BY p.created_at DESC
-      LIMIT 5
     `, [id]);
 
     const place = placeResult.rows[0];
-    place.reviews = reviewsResult.rows;
-    place.photos = photosResult.rows;
+    place.reviews = reviewsResult.rows.map(review => ({
+      ...review,
+      photos: review.photos || []
+    }));
 
     res.json(place);
   } catch (err) {
-    console.error(err);
+    console.error('Error fetching place details:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

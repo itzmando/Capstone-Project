@@ -44,7 +44,7 @@ router.get('/', async (req, res) => {
       paramCount++;
     }
 
-    query += ` ORDER BY avg_rating DESC NULLS LAST, p.name
+    query += ` ORDER BY COALESCE(AVG(r.rating), 0) DESC NULLS LAST, p.name
                LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     queryParams.push(limit, offset);
 

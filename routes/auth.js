@@ -30,42 +30,94 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-    try {
-      const { email, password } = req.body;
-  
-      const result = await pool.query(
-        'SELECT * FROM users WHERE email = $1;',
-        [email]
-      );
-  
-      const user = result.rows[0];
-  
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-  
-      const validPassword = await bcrypt.compare(password, user.password_hash);
-  
-      if (!validPassword) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
-  
-      const token = jwt.sign(
-        { id: user.id, email: user.email },
-        process.env.JWT_SECRET || "shhh",
-        { expiresIn: '24h' }
-      ); console.log('JWT Secret:', process.env.JWT_SECRET ? 'Is set' : 'Not set');
-  
-      await pool.query(
-        'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
-        [user.id]
-      );
-  
-      res.json(token);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Server error' });
-    }
-  });
+  try {
+    const { email, password } = req.body;
 
-  module.exports = router;
+    const result = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const user = result.rows[0];
+    const validPassword = await bcrypt.compare(password, user.password_hash);
+
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { 
+        id: user.id,
+        email: user.email,
+        username: user.username
+      },
+      process.env.JWT_SECRET || 'shhh',
+      { expiresIn: '24h' }
+    );
+
+    await pool.query(
+      'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
+      [user.id]
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username
+      }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/verify', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'shhh');
+    const result = await pool.query(
+      'SELECT id, email, username FROM users WHERE id = $1',
+      [decoded.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    res.json({ user: result.rows[0] });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+});
+
+router.get('/profile', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, username, email, full_name, bio, country, created_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Profile fetch error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+module.exports = router;

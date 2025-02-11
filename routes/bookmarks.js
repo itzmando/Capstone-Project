@@ -8,7 +8,7 @@ router.post('/:placeId', authenticateToken, async (req, res) => {
     const { notes } = req.body;
     const { placeId } = req.params;
 
-    const result = await db.query(
+    const result = await pool.query(
       `INSERT INTO bookmarks (user_id, place_id, notes)
        VALUES ($1, $2, $3)
        RETURNING *`,

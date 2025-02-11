@@ -8,9 +8,7 @@ const {
   seedCountries,
   seedCities,
   seedUsers,
-  seedAdmins,
   seedPlaces,
-  seedOperatingHours,
   seedReviews,
   seedPhotos,
   seedBookmarks
@@ -38,7 +36,6 @@ const seed = async () => {
     await seedCountries(db);
     await seedCities(db);
     await seedUsers(db);
-    await seedAdmins(db);
     await seedPlaces(db);
     await seedReviews(db);
     await seedPhotos(db);
